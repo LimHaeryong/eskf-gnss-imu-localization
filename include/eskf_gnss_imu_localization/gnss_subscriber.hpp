@@ -1,3 +1,6 @@
+#ifndef _GNSS_SUBSCRIBER_HPP_
+#define _GNSS_SUBSCRIBER_HPP_
+
 #include <functional>
 #include <memory>
 
@@ -23,3 +26,5 @@ private:
     message_filters::Subscriber<geometry_msgs::msg::TwistStamped> mGnssVelocitySyncSubscriber;
     std::shared_ptr<message_filters::Synchronizer<SyncPolicy>> mGnssSynchronizer;
 };
+
+#endif // _GNSS_SUBSCRIBER_HPP_

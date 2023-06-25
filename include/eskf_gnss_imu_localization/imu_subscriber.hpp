@@ -1,3 +1,6 @@
+#ifndef _IMU_SUBSCRIBER_HPP_
+#define _IMU_SUBSCRIBER_HPP_
+
 #include <functional>
 #include <memory>
 
@@ -15,3 +18,5 @@ private:
 
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr mImuSubscriber;
 };
+
+#endif // _IMU_SUBSCRIBER_HPP_
