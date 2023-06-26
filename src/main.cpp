@@ -17,7 +17,9 @@ int main(int argc, char** argv)
     rclcpp::init(argc, argv);
     auto localizationMainNode = rclcpp::Node::make_shared("localization_main_node");
     auto gnssSubscriber = std::make_shared<GnssSubscriber>();
+    auto gnssMeasurementQueue = gnssSubscriber->getQueue();
     auto imuSubscriber = std::make_shared<ImuSubscriber>();
+    auto imuMeasurementQueue = imuSubscriber->getQueue();
     
     auto executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
     executor->add_node(gnssSubscriber);
@@ -27,10 +29,24 @@ int main(int argc, char** argv)
         executor->spin();
     });
     
+    std::shared_ptr<ImuMeasurement> imuMeasurement = nullptr;
+    std::shared_ptr<GnssMeasurement> gnssMeasurement = nullptr;
+
     while(rclcpp::ok())
     {
-        std::cout << "main\n";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        if(!imuMeasurementQueue->empty())
+        {
+            imuMeasurement = imuMeasurementQueue->pop();
+            std::cout << "imu meas\n";
+        }
+
+        if(!gnssMeasurementQueue->empty())
+        {
+            gnssMeasurement = gnssMeasurementQueue->pop();
+            std::cout << "gnss meas\n";
+        }
+
+        //std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
     executor->cancel();
