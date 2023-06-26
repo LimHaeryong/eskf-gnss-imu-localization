@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(eskf_gnss_imu_localization)
 
 # Default to C99
@@ -26,14 +26,18 @@ find_package(message_filters REQUIRED)
 find_package(Sophus REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+add_subdirectory(modules)
+
 add_executable(test_exec 
   src/main.cpp
   src/gnss_subscriber.cpp
   src/imu_subscriber.cpp
+  src/eskf.cpp
 )
 target_include_directories(test_exec PRIVATE
   include
   ${EIGEN3_INCLUDE_DIR}
+  
 )
 ament_target_dependencies(test_exec 
   rclcpp
@@ -44,6 +48,7 @@ ament_target_dependencies(test_exec
 )
 target_link_libraries(test_exec
   Eigen3::Eigen
+  opengl_viewer
 )
 
 install(TARGETS

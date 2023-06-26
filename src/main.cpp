@@ -5,30 +5,36 @@
 
 #include <rclcpp/rclcpp.hpp>
 
-#include <sophus/so3.hpp>
-#include <Eigen/Dense>
-#include <sophus/geometry.hpp>
-
 #include "eskf_gnss_imu_localization/gnss_subscriber.hpp"
 #include "eskf_gnss_imu_localization/imu_subscriber.hpp"
+#include "eskf_gnss_imu_localization/eskf.hpp"
+
+#include "opengl_viewer/opengl_viewer.h"
 
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
+    
     auto localizationMainNode = rclcpp::Node::make_shared("localization_main_node");
     auto gnssSubscriber = std::make_shared<GnssSubscriber>();
     auto gnssMeasurementQueue = gnssSubscriber->getQueue();
     auto imuSubscriber = std::make_shared<ImuSubscriber>();
     auto imuMeasurementQueue = imuSubscriber->getQueue();
     
+    auto eskf = std::make_shared<ErrorStateKalmanFilter>();
+
     auto executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
     executor->add_node(gnssSubscriber);
     executor->add_node(imuSubscriber);
-
-    std::thread executor_thread([&executor](){
+    std::thread executorThread([&executor](){
         executor->spin();
     });
-    
+
+    auto openglViewer = std::make_shared<OpenglViewer>();
+    // std::thread openglViewerThread([&openglViewer](){
+    //     openglViewer->run();
+    // });
+
     std::shared_ptr<ImuMeasurement> imuMeasurement = nullptr;
     std::shared_ptr<GnssMeasurement> gnssMeasurement = nullptr;
 
@@ -37,7 +43,7 @@ int main(int argc, char** argv)
         if(!imuMeasurementQueue->empty())
         {
             imuMeasurement = imuMeasurementQueue->pop();
-            std::cout << "imu meas\n";
+            eskf->predictWithImu(std::move(imuMeasurement));
         }
 
         if(!gnssMeasurementQueue->empty())
@@ -50,8 +56,10 @@ int main(int argc, char** argv)
     }
 
     executor->cancel();
-    executor_thread.join();
+    executorThread.join();
+    //openglViewerThread.join();
     rclcpp::shutdown();
+
     return 0;
 }
 
