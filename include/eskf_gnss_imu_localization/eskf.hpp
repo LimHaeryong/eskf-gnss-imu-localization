@@ -23,10 +23,12 @@ private:
     void injectErrorToNominal();
     void resetErrorState();
 
-    Eigen::Matrix<double, 4, 3> computeQ_error_theta(Eigen::Matrix<double, 4, 1> quaternionVector);
-    Eigen::Matrix4d quaternionToLeftProductMatrix(const Eigen::Quaterniond& quaternion);
-    Eigen::Matrix4d quaternionToRightProductMatrix(const Eigen::Quaterniond& quaternion);
+    Eigen::Matrix<double, 4, 3> computeQ_error_theta(const Eigen::Matrix<double, 4, 1>& quaternion);
+    Eigen::Matrix4d quaternionToLeftProductMatrix(const Eigen::Matrix<double, 4, 1>& quaternion);
+    Eigen::Matrix4d quaternionToRightProductMatrix(const Eigen::Matrix<double, 4, 1>& quaternion);
     Eigen::Matrix3d vector3dToSkewSymmetric(const Eigen::Vector3d& vec3d);
+    Eigen::Matrix3d quaternionToRotationMatrix(const Eigen::Matrix<double, 4, 1>& quaternion);
+    Eigen::Matrix3d angularToRotationMatrix(const Eigen::Vector3d& angularVector);
 
     TimePoint prevTime;
 
@@ -50,15 +52,17 @@ private:
 
 #endif // _ESKF_HPP_
 
-// x(19 by 1) : nominal state || variable
-// del_x(18 by 1) : error state || variable
-// P(18 by 18) : state covariance || variable
+// x(19 by 1) : nominal state : position(3), velocity(3), quaternion(4, Hamilton type = (w, x, y, z)), accel_bias(3), angular_velocity_bias(3), gravity(3)
+// del_x(18 by 1) : error state  : position(3), velocity(3), theta(3, angle-axis), accel_bias(3), angular_velocity_bias(3), gravity(3)
+// P(18 by 18) : state covariance 
 
-// F_x(18 by 18), F_i(18 by 12) : jacobians of motion model repect to error, perturbation impulse || variable
-// Q_i(12 by 12) : covariances matrix of the perturbation impulses(velocity, anglular, accel, angular vel) || variable + constant
-// accel and angular -> use ImuMeasurement
-// velocity and angle -> use Experimental value
+// F_x(18 by 18), F_i(18 by 12) : jacobians of motion model repect to error, perturbation impulse 
+// Q_i(12 by 12) : covariances matrix of the perturbation impulses(velocity, anglular, accel, angular vel) 
+// velocity and angle covariance -> use Experimental value
+// accel and angular velocity covariance-> use ImuMeasurement
 
-// H_x(6 by 19), X_del_x(19 by 18), H(6 by 18) : observer jacobian || variable + constant
-// K(18 by 6) : kalman gain || variable
-// V(6 by 6) : measurement(gnss) noise || variable(use gnssMeasurement + experimental)
+// H_x(6 by 19), X_del_x(19 by 18), H(6 by 18) : observer jacobian 
+// K(18 by 6) : kalman gain
+// V(6 by 6) : measurement(gnss) noise covariance 
+// position covariance -> use GnssMeasurement
+// velocitiy covariance -> use Experimental value

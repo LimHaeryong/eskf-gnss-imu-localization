@@ -29,27 +29,57 @@ void ErrorStateKalmanFilter::predictWithImu(std::shared_ptr<ImuMeasurement> imuM
     std::chrono::duration<double> duration = imuMeasurement->timestamp - prevTime;
     prevTime = imuMeasurement->timestamp;
     double dt = duration.count();
+    if(dt > 0.01 * 10)
+    {
+        dt = 0.01;
+    }
 
-    // // compute F_x
-    // F_x.block<3, 3>(0, 3) = identity3d * dt;
-    // F_x.block<3, 3>(3, 15) = identity3d * dt;
-    // F_x.block<3, 3>(6, 12) = -1.0 * identity3d * dt;
-    // F_x.block<3, 3>(6, 6)
+    Eigen::Matrix3d dR = vector3dToSkewSymmetric((imuMeasurement->angularVelocity - x.block<3, 1>(13, 0)) * dt).exp();
+    Eigen::Matrix3d R = quaternionToRotationMatrix(x.block<4, 1>(6, 0)) * dR;
+
+    // compute F_x
+    F_x.block<3, 3>(0, 3) = identity3d * dt;
+    F_x.block<3, 3>(3, 6) = -1.0 * R * vector3dToSkewSymmetric(imuMeasurement->acceleration - x.block<3, 1>(10, 0)) * dt;
+    F_x.block<3, 3>(3, 9) = -1.0 * R * dt;
+    F_x.block<3, 3>(3, 15) = identity3d * dt;
+    F_x.block<3, 3>(6, 6) = dR.transpose();
+    F_x.block<3, 3>(6, 12) = -1.0 * identity3d * dt;
+
+    // compute Q_i
+    Q_i.block<3, 3>(6, 6) = imuMeasurement->accelerationCovariance;
+    Q_i.block<3, 3>(9, 9) = imuMeasurement->angularVelocityCovariance;
+
+    // update
+    error_x = F_x * error_x;
+    P = F_x * P * F_x.transpose() + F_i * Q_i * F_i.transpose();
 }
 
-Eigen::Matrix<double, 4, 3> ErrorStateKalmanFilter::computeQ_error_theta(Eigen::Matrix<double, 4, 1> quaternionVector)
+void ErrorStateKalmanFilter::updateWithGnss(std::shared_ptr<GnssMeasurement> gnssMeasurement)
 {
-    auto q = Eigen::Map<Eigen::Quaterniond>(quaternionVector.data());
+    // compute V
+    V.block<3, 3>(0, 0) = gnssMeasurement->positionCovariance;
+
+    // compute d(x) / d(error_x)
+    x_error_x.block<4, 3>(6, 6) = computeQ_error_theta(x.block<4, 1>(6, 0));
+
+    // compute H
+
+    // compute K
+    K = P * 
+}
+
+Eigen::Matrix<double, 4, 3> ErrorStateKalmanFilter::computeQ_error_theta(const Eigen::Matrix<double, 4, 1>& quaternion)
+{
     auto error_q_error_theta = Eigen::Matrix<double, 4, 3>::Zero();
     error_q_error_theta.block<3, 3>(1, 0) = Eigen::Matrix<double, 3, 3>::Identity() * 0.5;
-    auto Q_error_theta = quaternionToLeftProductMatrix(q) * error_q_error_theta;
+    auto Q_error_theta = quaternionToLeftProductMatrix(quaternion) * error_q_error_theta;
     return Q_error_theta;
 }
 
-Eigen::Matrix4d ErrorStateKalmanFilter::quaternionToLeftProductMatrix(const Eigen::Quaterniond& quaternion)
+Eigen::Matrix4d ErrorStateKalmanFilter::quaternionToLeftProductMatrix(const Eigen::Matrix<double, 4, 1>& quaternion)
 {
-    Eigen::Vector3d q_v = quaternion.vec();
-    double q_w = quaternion.w();
+    Eigen::Vector3d q_v = quaternion.block<3, 1>(1, 0);
+    double q_w = quaternion(0, 0);
     Eigen::Matrix4d LeftProductMatrix = q_w * Eigen::Matrix4d::Identity();
     LeftProductMatrix.block<1, 3>(3, 0) += q_v.transpose();
     LeftProductMatrix.block<3, 1>(0, 3) -= q_v;
@@ -57,10 +87,10 @@ Eigen::Matrix4d ErrorStateKalmanFilter::quaternionToLeftProductMatrix(const Eige
     return LeftProductMatrix;
 }
 
-Eigen::Matrix4d ErrorStateKalmanFilter::quaternionToRightProductMatrix(const Eigen::Quaterniond& quaternion)
+Eigen::Matrix4d ErrorStateKalmanFilter::quaternionToRightProductMatrix(const Eigen::Matrix<double, 4, 1>& quaternion)
 {
-    Eigen::Vector3d q_v = quaternion.vec();
-    double q_w = quaternion.w();
+    Eigen::Vector3d q_v = quaternion.block<3, 1>(1, 0);
+    double q_w = quaternion(0, 0);
     Eigen::Matrix4d RightProductMatrix = q_w * Eigen::Matrix4d::Identity();
     RightProductMatrix.block<1, 3>(3, 0) += q_v.transpose();
     RightProductMatrix.block<3, 1>(0, 3) -= q_v;
@@ -75,4 +105,12 @@ Eigen::Matrix3d ErrorStateKalmanFilter::vector3dToSkewSymmetric(const Eigen::Vec
         vec3d.z(), 0.0, -vec3d.x(), 
         -vec3d.y(), vec3d.x(), 0.0;
     return skewSymmetric;
+}
+
+Eigen::Matrix3d ErrorStateKalmanFilter::quaternionToRotationMatrix(const Eigen::Matrix<double, 4, 1>& quaternion)
+{
+    Eigen::Quaterniond q;
+    q.w() = quaternion(0, 0);
+    q.vec() = quaternion.block<3, 1>(1, 0);
+    return q.toRotationMatrix();
 }
