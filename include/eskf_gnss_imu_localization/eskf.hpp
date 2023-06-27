@@ -23,6 +23,11 @@ private:
     void injectErrorToNominal();
     void resetErrorState();
 
+    Eigen::Matrix<double, 4, 3> computeQ_error_theta(Eigen::Matrix<double, 4, 1> quaternionVector);
+    Eigen::Matrix4d quaternionToLeftProductMatrix(const Eigen::Quaterniond& quaternion);
+    Eigen::Matrix4d quaternionToRightProductMatrix(const Eigen::Quaterniond& quaternion);
+    Eigen::Matrix3d vector3dToSkewSymmetric(const Eigen::Vector3d& vec3d);
+
     TimePoint prevTime;
 
     Eigen::Matrix<double, 18, 1> x;
@@ -40,7 +45,7 @@ private:
     Eigen::Matrix<double, 18, 6> K;
 
     Eigen::Matrix3d identity3d = Eigen::Matrix3d::Identity();
-        
+    
 };
 
 #endif // _ESKF_HPP_
