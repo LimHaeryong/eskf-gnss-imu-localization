@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include <rclcpp/rclcpp.hpp>
+#include <spdlog/spdlog.h>
 
 #include "eskf_gnss_imu_localization/gnss_subscriber.hpp"
 #include "eskf_gnss_imu_localization/imu_subscriber.hpp"
@@ -44,15 +45,18 @@ int main(int argc, char** argv)
         {
             imuMeasurement = imuMeasurementQueue->pop();
             eskf->predictWithImu(std::move(imuMeasurement));
+            auto filteredPosition = eskf->getPosition();
+            SPDLOG_INFO("predict : {}, {}, {}", filteredPosition.x(), filteredPosition.y(), filteredPosition.z());
         }
 
         if(!gnssMeasurementQueue->empty())
         {
             gnssMeasurement = gnssMeasurementQueue->pop();
-            std::cout << "gnss meas\n";
+            SPDLOG_INFO("gnss : {}, {}, {}", gnssMeasurement->position.x(), gnssMeasurement->position.y(), gnssMeasurement->position.z());
+            eskf->updateWithGnss(std::move(gnssMeasurement));
+            auto filteredPosition = eskf->getPosition();
+            SPDLOG_INFO("update : {}, {}, {}", filteredPosition.x(), filteredPosition.y(), filteredPosition.z());
         }
-
-        //std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 
     executor->cancel();
