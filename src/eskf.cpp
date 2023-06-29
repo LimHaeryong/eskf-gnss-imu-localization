@@ -1,25 +1,25 @@
 #include <cmath>
 
-#include <unsupported/Eigen/MatrixFunctions>
+#include <spdlog/spdlog.h>
 
 #include "eskf_gnss_imu_localization/eskf.hpp"
 
 ErrorStateKalmanFilter::ErrorStateKalmanFilter()
     : x(Eigen::Matrix<double, 19, 1>::Zero())
     , error_x(Eigen::Matrix<double, 18, 1>::Zero())
-    , P(Mat18d::Identity())
+    , P(Mat18d::Identity() * 0.01)
     , F_x(Mat18d::Identity())
     , F_i(Eigen::Matrix<double, 18, 12>::Zero())
     , Q_i(Eigen::Matrix<double, 12, 12>::Identity())
-    , velocity_noise_variance(0.01 * 0.01)
-    , orientation_noise_variance(0.01 * 0.01)
+    , velocity_noise_variance(std::pow(0.01, 2))
+    , orientation_noise_variance(std::pow(0.01, 2))
     , H_x(Eigen::Matrix<double, 6, 19>::Zero())
     , x_error_x(Eigen::Matrix<double, 19, 18>::Zero())
     , V(Eigen::Matrix<double, 6, 6>::Identity())
     , G(Mat18d::Identity())
 {
-    x(6) = 1.0;
-    x(18) = 9.8;
+    x(6) = 1.0; // quat_w init
+    x(18) = -9.8; // gravity init
     F_i.block<12, 12>(3, 0) = Eigen::Matrix<double, 12, 12>::Identity();
     H_x.block<6, 6>(0, 0) = Eigen::Matrix<double, 6, 6>::Identity();
     x_error_x.block<6, 6>(0, 0) = Eigen::Matrix<double, 6, 6>::Identity();
@@ -29,6 +29,8 @@ ErrorStateKalmanFilter::ErrorStateKalmanFilter()
     // TODO
     // Q_i (0, 0)~(3, 3) and (3, 3)~(6, 6) is experimental value : velocity covariance, angular covariance
     // V (3, 3)~(6,6) is experimental value : GNSS velocity covariance
+    Q_i.block<6, 6>(0, 0) = 5e-4 * Eigen::Matrix<double, 6, 6>::Identity();
+
 }
 
 void ErrorStateKalmanFilter::predictWithImu(std::shared_ptr<ImuMeasurement> imuMeasurement)
@@ -43,9 +45,8 @@ void ErrorStateKalmanFilter::predictWithImu(std::shared_ptr<ImuMeasurement> imuM
     }
     double dt2 = dt * dt;
 
-    Eigen::Matrix3d log_dR = vector3dToSkewSymmetric((imuMeasurement->angularVelocity - x.block<3, 1>(13, 0)) * dt);
-    Eigen::Matrix3d dR = log_dR.exp();
-    Eigen::Matrix3d R = quaternionToRotationMatrix(x.block<4, 1>(6, 0)) * dR;
+    Eigen::Matrix3d dR = rotationVectorToRotationMatrix(imuMeasurement->angularVelocity - x.block<3, 1>(13, 0) * dt);
+    Eigen::Matrix3d R = quaternionToRotationMatrix(x.block<4, 1>(6, 0));
 
     F_x.block<3, 3>(0, 3) = Eigen::Matrix3d::Identity() * dt;
     F_x.block<3, 3>(3, 6) = -1.0 * R * vector3dToSkewSymmetric(imuMeasurement->acceleration - x.block<3, 1>(10, 0)) * dt;
@@ -94,11 +95,14 @@ void ErrorStateKalmanFilter::injectErrorToNominal()
     auto error_quat = rotationVectorToQuaternion(error_x.block<3, 1>(6, 0));
     x.block<4, 1>(6, 0) = quaternionToLeftProductMatrix(x.block<4, 1>(6, 0)) * error_quat;
     x.block<9, 1>(10, 0) += error_x.block<9, 1>(9, 0);
+
+    x.block<3, 1>(16, 0).normalize();
+    x.block<3, 1>(16, 0) *= 9.8;
 }
 
 void ErrorStateKalmanFilter::resetErrorState()
 {
-    G.block<3, 3>(6, 6) = Eigen::Matrix3d::Identity() + 0.5 * vector3dToSkewSymmetric(error_x.block<3, 1>(6, 0));
+    G.block<3, 3>(6, 6) = Eigen::Matrix3d::Identity() - 0.5 * vector3dToSkewSymmetric(error_x.block<3, 1>(6, 0));
     P = G * P * G.transpose();
     error_x.setZero();
 }
@@ -160,6 +164,14 @@ Eigen::Vector4d ErrorStateKalmanFilter::rotationVectorToQuaternion(const Eigen::
     return quaternion;
 }
 
+Eigen::Matrix3d ErrorStateKalmanFilter::rotationVectorToRotationMatrix(const Eigen::Vector3d& rotationVector)
+{
+    double phi = rotationVector.norm();
+    Eigen::Vector3d u = rotationVector.normalized();
+    Eigen::Matrix3d rotationMatrix = std::cos(phi) * Eigen::Matrix3d::Identity() + std::sin(phi) * vector3dToSkewSymmetric(u) + (1.0 - std::cos(phi)) * u * u.transpose();
+    return rotationMatrix;
+}
+
 Eigen::Vector3d ErrorStateKalmanFilter::getPosition() const 
 {
     return x.block<3, 1>(0, 0); 
@@ -175,4 +187,12 @@ Eigen::Vector3d ErrorStateKalmanFilter::llaToEnu(const Eigen::Vector3d& llaPosit
     Eigen::Vector3d enuPosition;
     mLocalCartesian.Forward(llaPosition(0), llaPosition(1), llaPosition(2), enuPosition(0), enuPosition(1), enuPosition(2));
     return enuPosition;
+}
+
+void ErrorStateKalmanFilter::printState() const
+{
+    SPDLOG_INFO("state position : {}, {}, {}", x(0), x(1), x(2));
+    SPDLOG_INFO("state velocity : {}, {}, {}", x(3), x(4), x(5));
+    SPDLOG_INFO("state quaternion : {}, {}, {}, {}", x(6), x(7), x(8), x(9));
+    SPDLOG_INFO("state gravity : {}, {}, {}", x(16), x(17), x(18));
 }

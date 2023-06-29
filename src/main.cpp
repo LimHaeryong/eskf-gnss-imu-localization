@@ -57,8 +57,9 @@ int main(int argc, char** argv)
             auto gnssPosition = eskf->llaToEnu(gnssMeasurement->position);
             SPDLOG_INFO("gnss : {}, {}, {}", gnssPosition.x(), gnssPosition.y(), gnssPosition.z());
             eskf->updateWithGnss(std::move(gnssMeasurement));
-            auto filteredPosition = eskf->getPosition();
-            SPDLOG_INFO("update : {}, {}, {}", filteredPosition.x(), filteredPosition.y(), filteredPosition.z());
+            auto positionDiff = gnssPosition - eskf->getPosition();
+            eskf->printState();
+            SPDLOG_INFO("position diff gnss / filter : {}, {}, {}", positionDiff.x(), positionDiff.y(), positionDiff.z());
         }
     }
 

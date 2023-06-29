@@ -24,6 +24,8 @@ public:
     Eigen::Vector3d getPosition() const;
     Eigen::Vector3d llaToEnu(const Eigen::Vector3d& llaPosition);
 
+    void printState() const;
+
 private:
     void injectErrorToNominal();
     void resetErrorState();
@@ -34,6 +36,7 @@ private:
     Eigen::Matrix3d vector3dToSkewSymmetric(const Eigen::Vector3d& vec3d);
     Eigen::Matrix3d quaternionToRotationMatrix(const Eigen::Matrix<double, 4, 1>& quaternion);
     Eigen::Vector4d rotationVectorToQuaternion(const Eigen::Vector3d& rotationVector);
+    Eigen::Matrix3d rotationVectorToRotationMatrix(const Eigen::Vector3d& rotationVector);
 
     
 
