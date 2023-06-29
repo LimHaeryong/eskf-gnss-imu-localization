@@ -16,7 +16,6 @@
   <depend>nmea_msgs</depend>
   <depend>message_filters</depend>
   <depend>nmea_navsat_driver</depend>
-  <depend>Sophus</depend>
   <exec_depend>ros2launch</exec_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

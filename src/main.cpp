@@ -12,8 +12,11 @@
 
 #include "opengl_viewer/opengl_viewer.h"
 
+
+
 int main(int argc, char** argv)
 {
+    SPDLOG_INFO("program start");
     rclcpp::init(argc, argv);
     
     auto localizationMainNode = rclcpp::Node::make_shared("localization_main_node");
@@ -39,20 +42,20 @@ int main(int argc, char** argv)
     std::shared_ptr<ImuMeasurement> imuMeasurement = nullptr;
     std::shared_ptr<GnssMeasurement> gnssMeasurement = nullptr;
 
+    SPDLOG_INFO("main loop start");
     while(rclcpp::ok())
     {
         if(!imuMeasurementQueue->empty())
         {
             imuMeasurement = imuMeasurementQueue->pop();
             eskf->predictWithImu(std::move(imuMeasurement));
-            auto filteredPosition = eskf->getPosition();
-            SPDLOG_INFO("predict : {}, {}, {}", filteredPosition.x(), filteredPosition.y(), filteredPosition.z());
         }
 
         if(!gnssMeasurementQueue->empty())
         {
             gnssMeasurement = gnssMeasurementQueue->pop();
-            SPDLOG_INFO("gnss : {}, {}, {}", gnssMeasurement->position.x(), gnssMeasurement->position.y(), gnssMeasurement->position.z());
+            auto gnssPosition = eskf->llaToEnu(gnssMeasurement->position);
+            SPDLOG_INFO("gnss : {}, {}, {}", gnssPosition.x(), gnssPosition.y(), gnssPosition.z());
             eskf->updateWithGnss(std::move(gnssMeasurement));
             auto filteredPosition = eskf->getPosition();
             SPDLOG_INFO("update : {}, {}, {}", filteredPosition.x(), filteredPosition.y(), filteredPosition.z());

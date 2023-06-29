@@ -20,5 +20,6 @@ void GnssSubscriber::gnssSyncCallback(const sensor_msgs::msg::NavSatFix::ConstSh
     // RCLCPP_INFO(this->get_logger(), "sync gnss position message at %d.%08d", gnssPosition->header.stamp.sec, gnssPosition->header.stamp.nanosec);
     // RCLCPP_INFO(this->get_logger(), "sync gnss velocity message at %d.%08d", gnssVelocity->header.stamp.sec, gnssVelocity->header.stamp.nanosec);
     auto gnssMeasurement = std::make_shared<GnssMeasurement>(gnssPosition, gnssVelocity);
+    //RCLCPP_INFO(this->get_logger(), "gnss lla position %lf, %lf, %lf", gnssMeasurement->position.x(), gnssMeasurement->position.y() ,gnssMeasurement->position.z());
     mGnssMeasurementQueue->push(gnssMeasurement);
 }

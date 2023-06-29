@@ -23,8 +23,9 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nmea_msgs REQUIRED)
 find_package(message_filters REQUIRED)
-find_package(Sophus REQUIRED)
+
 find_package(Eigen3 REQUIRED)
+find_package(GeographicLib REQUIRED PATHS /root/geographic/install/lib/cmake/GeographicLib)
 
 add_subdirectory(modules)
 
@@ -37,17 +38,17 @@ add_executable(test_exec
 target_include_directories(test_exec PRIVATE
   include
   ${EIGEN3_INCLUDE_DIR}
-  
+  ${GeographicLib_INCLUDE_DIRS}
 )
 ament_target_dependencies(test_exec 
   rclcpp
   sensor_msgs
   geometry_msgs
   message_filters
-  Sophus
 )
 target_link_libraries(test_exec
   Eigen3::Eigen
+  ${GeographicLib_LIBRARIES}
   opengl_viewer
 )
 

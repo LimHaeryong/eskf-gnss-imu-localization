@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <Eigen/Dense>
+#include <GeographicLib/LocalCartesian.hpp>
 
 #include "eskf_gnss_imu_localization/type.hpp"
 
@@ -20,7 +21,8 @@ public:
     void predictWithImu(std::shared_ptr<ImuMeasurement> imuMeasurement);
     void updateWithGnss(std::shared_ptr<GnssMeasurement> gnssMeasurement);
 
-    Eigen::Vector3d getPosition() const { return x.block<3, 1>(0, 0); }
+    Eigen::Vector3d getPosition() const;
+    Eigen::Vector3d llaToEnu(const Eigen::Vector3d& llaPosition);
 
 private:
     void injectErrorToNominal();
@@ -31,6 +33,9 @@ private:
     Eigen::Matrix4d quaternionToRightProductMatrix(const Eigen::Matrix<double, 4, 1>& quaternion);
     Eigen::Matrix3d vector3dToSkewSymmetric(const Eigen::Vector3d& vec3d);
     Eigen::Matrix3d quaternionToRotationMatrix(const Eigen::Matrix<double, 4, 1>& quaternion);
+    Eigen::Vector4d rotationVectorToQuaternion(const Eigen::Vector3d& rotationVector);
+
+    
 
     TimePoint prevTime;
 
@@ -42,6 +47,9 @@ private:
     Eigen::Matrix<double, 18, 12> F_i;
     Eigen::Matrix<double, 12, 12> Q_i;
 
+    double velocity_noise_variance;
+    double orientation_noise_variance;
+
     Eigen::Matrix<double, 6, 1> z;
     Eigen::Matrix<double, 6, 19> H_x;
     Eigen::Matrix<double, 19, 18> x_error_x;
@@ -51,6 +59,9 @@ private:
     Eigen::Matrix<double, 18, 6> K;
 
     Eigen::Matrix<double, 18, 18> G;
+
+    bool mLocalCartesinInitialized = false;
+    GeographicLib::LocalCartesian mLocalCartesian;
 };
 
 #endif // _ESKF_HPP_
