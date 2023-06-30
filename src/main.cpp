@@ -43,6 +43,7 @@ int main(int argc, char** argv)
     std::shared_ptr<GnssMeasurement> gnssMeasurement = nullptr;
 
     SPDLOG_INFO("main loop start");
+
     while(rclcpp::ok())
     {
         if(!imuMeasurementQueue->empty())
@@ -55,11 +56,9 @@ int main(int argc, char** argv)
         {
             gnssMeasurement = gnssMeasurementQueue->pop();
             auto gnssPosition = eskf->llaToEnu(gnssMeasurement->position);
-            SPDLOG_INFO("gnss : {}, {}, {}", gnssPosition.x(), gnssPosition.y(), gnssPosition.z());
+            auto gnssVelocity = gnssMeasurement->linearVelocity;
             eskf->updateWithGnss(std::move(gnssMeasurement));
             auto positionDiff = gnssPosition - eskf->getPosition();
-            eskf->printState();
-            SPDLOG_INFO("position diff gnss / filter : {}, {}, {}", positionDiff.x(), positionDiff.y(), positionDiff.z());
         }
     }
 

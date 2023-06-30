@@ -37,7 +37,7 @@ private:
     Eigen::Matrix3d quaternionToRotationMatrix(const Eigen::Matrix<double, 4, 1>& quaternion);
     Eigen::Vector4d rotationVectorToQuaternion(const Eigen::Vector3d& rotationVector);
     Eigen::Matrix3d rotationVectorToRotationMatrix(const Eigen::Vector3d& rotationVector);
-
+    Eigen::Vector4d rotationMatrixToQuaternion(const Eigen::Matrix3d& rotationMatrix);
     
 
     TimePoint prevTime;
