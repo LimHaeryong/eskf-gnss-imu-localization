@@ -18,7 +18,7 @@ def generate_launch_description():
         name='nmea_topic_driver',
         arguments=['--ros-args --remap useRMC:=True']
     )
-
+    
     launch_description = LaunchDescription()
     launch_description.add_action(nmea_navsat_node)
     launch_description.add_action(play_rosbag)

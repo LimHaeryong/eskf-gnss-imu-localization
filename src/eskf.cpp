@@ -3,204 +3,132 @@
 #include <spdlog/spdlog.h>
 
 #include "eskf_gnss_imu_localization/eskf.hpp"
+#include "eskf_gnss_imu_localization/math_utils.hpp"
 
 ErrorStateKalmanFilter::ErrorStateKalmanFilter()
-    : x(Eigen::Matrix<double, 19, 1>::Zero())
-    , error_x(Eigen::Matrix<double, 18, 1>::Zero())
-    , P(Mat18d::Identity() * 1e-4)
-    , F_x(Mat18d::Identity())
-    , F_i(Eigen::Matrix<double, 18, 12>::Zero())
-    , Q_i(Eigen::Matrix<double, 12, 12>::Identity())
-    , velocity_noise_variance(1.0)
-    , orientation_noise_variance(1.0)
-    , H_x(Eigen::Matrix<double, 6, 19>::Zero())
-    , x_error_x(Eigen::Matrix<double, 19, 18>::Zero())
-    , V(Eigen::Matrix<double, 6, 6>::Identity())
-    , G(Mat18d::Identity())
-{
-    x(6) = 1.0; // quat_w init
-    x(18) = -9.8; // gravity init
-    F_i.block<12, 12>(3, 0) = Eigen::Matrix<double, 12, 12>::Identity();
-    H_x.block<6, 6>(0, 0) = Eigen::Matrix<double, 6, 6>::Identity();
-    x_error_x.block<6, 6>(0, 0) = Eigen::Matrix<double, 6, 6>::Identity();
-    x_error_x.block<9, 9>(10, 9) = Eigen::Matrix<double, 9, 9>::Identity();
-    x_error_x.block<4, 3>(6, 6) = computeQ_error_theta(x.block<4, 1>(6, 0));
+    : nominal_pos_(Eigen::Vector3d::Zero()),
+      nominal_vel_(Eigen::Vector3d::Zero()),
+      nominal_attitude_(Eigen::Quaterniond::Identity()),
+      nominal_accel_bias_(Eigen::Vector3d::Zero()),
+      nominal_gyro_bias_(Eigen::Vector3d::Zero()),
+      nominal_gravity_(0.0, 0.0, -9.8),
+      error_x_(Vec18d::Zero()),
+      P_(Mat18d::Identity()),
+      F_x_(Mat18d::Identity()),
+      F_i_(Eigen::Matrix<double, 18, 12>::Zero()),
+      Q_i_(Mat12d::Identity()),
+      velocity_noise_variance_(1.0),
+      orientation_noise_variance_(1.0),
+      H_x_(Eigen::Matrix<double, 6, 19>::Zero()),
+      J_true_error_(Eigen::Matrix<double, 19, 18>::Zero()),
+      V_(Mat6d::Identity()),
+      G_(Mat18d::Identity()) {
+  F_i_.block<12, 12>(3, 0) = Mat12d::Identity();
+  H_x_.block<6, 6>(0, 0) = Mat6d::Identity();
+  J_true_error_.block<6, 6>(0, 0) = Mat6d::Identity();
+  J_true_error_.block<9, 9>(10, 9) = Mat9d::Identity();
+  J_true_error_.block<4, 3>(6, 6) = computeQuatJacobiToErrorQuat();
 
-    // TODO
-    // Q_i (0, 0)~(3, 3) and (3, 3)~(6, 6) is experimental value : velocity covariance, angular covariance
-    // V (3, 3)~(6,6) is experimental value : GNSS velocity covariance
-    Q_i.block<6, 6>(0, 0) = 1e-2 * Eigen::Matrix<double, 6, 6>::Identity();
+  Q_i_.block<6, 6>(0, 0) = Mat6d::Identity() * 1e-2;
 }
 
-void ErrorStateKalmanFilter::predictWithImu(std::shared_ptr<ImuMeasurement> imuMeasurement)
-{   
-    // compute variables
-    std::chrono::duration<double> duration = imuMeasurement->timestamp - prevTime;
-    prevTime = imuMeasurement->timestamp;
-    double dt = duration.count();
-    if(dt > 0.01 * 10)
-    {
-        dt = 0.01;
-    }
-    double dt2 = dt * dt;
-
-    Eigen::Matrix3d R = quaternionToRotationMatrix(x.block<4, 1>(6, 0));    
-    //x.block<3, 1>(0, 0) += x.block<3, 1>(3, 0) * dt + 0.5 * (R * (imuMeasurement->acceleration - x.block<3, 1>(10, 0))  + x.block<3, 1>(16, 0)) * dt2; 
-    //x.block<3, 1>(3, 0) += R * (imuMeasurement->acceleration - x.block<3, 1>(10, 0)) * dt;
-    Eigen::Matrix3d dR = rotationVectorToRotationMatrix((imuMeasurement->angularVelocity - x.block<3, 1>(13, 0)) * dt);
-    // Eigen::Matrix3d new_R = R * dR;
-    // x.block<4, 1>(6, 0) = rotationMatrixToQuaternion(new_R);
-
-    F_x.block<3, 3>(0, 3) = Eigen::Matrix3d::Identity() * dt;
-    F_x.block<3, 3>(3, 6) = -1.0 * R * vector3dToSkewSymmetric(imuMeasurement->acceleration - x.block<3, 1>(10, 0)) * dt;
-    F_x.block<3, 3>(3, 9) = -1.0 * R * dt;
-    F_x.block<3, 3>(3, 15) = Eigen::Matrix3d::Identity() * dt;
-    F_x.block<3, 3>(6, 6) = dR.transpose();
-    F_x.block<3, 3>(6, 12) = -1.0 * Eigen::Matrix3d::Identity() * dt;
-
-    Q_i.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() * velocity_noise_variance * dt2;
-    Q_i.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity() * orientation_noise_variance * dt2;
-    Q_i.block<3, 3>(6, 6) = imuMeasurement->accelerationCovariance;
-    Q_i.block<3, 3>(9, 9) = imuMeasurement->angularVelocityCovariance;
-
-    // update 
-    // no need to predict error_x
-    P = F_x * P * F_x.transpose() + F_i * Q_i * F_i.transpose();
+void ErrorStateKalmanFilter::printState() const {
+  SPDLOG_INFO("state position : {}, {}, {}", nominal_pos_(0), nominal_pos_(1), nominal_pos_(2));
+  SPDLOG_INFO("state velocity : {}, {}, {}", nominal_vel_(0), nominal_vel_(1), nominal_vel_(2));
+  SPDLOG_INFO("state quaternion : {}, {}, {}, {}", nominal_attitude_.w(), nominal_attitude_.x(), nominal_attitude_.y(),
+              nominal_attitude_.z());
+  SPDLOG_INFO("state gravity : {}, {}, {}", nominal_gravity_(0), nominal_gravity_(1), nominal_gravity_(2));
 }
 
-void ErrorStateKalmanFilter::updateWithGnss(std::shared_ptr<GnssMeasurement> gnssMeasurement)
-{
-    // compute variables
-    V.block<3, 3>(0, 0) = gnssMeasurement->positionCovariance;
-    x_error_x.block<4, 3>(6, 6) = computeQ_error_theta(x.block<4, 1>(6, 0));
+void ErrorStateKalmanFilter::predictWithImu(std::shared_ptr<ImuMeasurement> imuData) {
+  std::chrono::duration<double> duration = imuData->timestamp - prev_time_;
+  prev_time_ = imuData->timestamp;
+  double dt = duration.count();
+  if (dt > 0.05) {
+    dt = 0.01;
+  }
+  double dt2 = dt * dt;
 
-    H = H_x * x_error_x;
-    auto H_t = H.transpose();
+  Eigen::Matrix3d R = nominal_attitude_.toRotationMatrix();
+  Eigen::Vector3d accel_diff = imuData->acceleration - nominal_accel_bias_;
+  Eigen::Vector3d gyro_diff = imuData->angularVelocity - nominal_gyro_bias_;
 
-    K = P * H_t * (H * P * H_t + V).inverse();
+  nominal_pos_ += nominal_vel_ * dt + 0.5 * (R * accel_diff + nominal_gravity_) * dt2;
+  nominal_vel_ += (R * accel_diff + nominal_gravity_) * dt;
+  Eigen::Matrix3d dR = MathUtils::rotationVectorToRotationMatrix(gyro_diff * dt);
+  nominal_attitude_ = Eigen::Quaterniond(R * dR);
+  nominal_attitude_.normalize();
 
-    z.block<3, 1>(0, 0) = llaToEnu(gnssMeasurement->position);
-    z.block<3, 1>(3, 0) = gnssMeasurement->linearVelocity;
+  F_x_.block<3, 3>(0, 3) = Eigen::Matrix3d::Identity() * dt;
+  F_x_.block<3, 3>(3, 6) = -1.0 * R * MathUtils::vec3ToSkewSymmetric(accel_diff) * dt;
+  F_x_.block<3, 3>(3, 9) = -1.0 * R * dt;
+  F_x_.block<3, 3>(3, 15) = Eigen::Matrix3d::Identity() * dt;
+  F_x_.block<3, 3>(6, 6) = dR.transpose();
+  F_x_.block<3, 3>(6, 12) = -1.0 * Eigen::Matrix3d::Identity() * dt;
 
-    // update
-    error_x = K * (z - H_x * x);
-    // auto i_minus_kh = Mat18d::Identity() - K * H;
-    // P = i_minus_kh * P * i_minus_kh.transpose() + K * V * K.transpose();
+  Q_i_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() * velocity_noise_variance_ * dt2;
+  Q_i_.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity() * orientation_noise_variance_ * dt2;
+  Q_i_.block<3, 3>(6, 6) = imuData->accelerationCovariance;
+  Q_i_.block<3, 3>(9, 9) = imuData->angularVelocityCovariance;
 
-    P = (Mat18d::Identity() - K * H) * P;
-
-    injectErrorToNominal();
-    resetErrorState();
+  P_ = F_x_ * P_ * F_x_.transpose() + F_i_ * Q_i_ * F_i_.transpose();
 }
 
-void ErrorStateKalmanFilter::injectErrorToNominal()
-{
-    x.block<6, 1>(0, 0) += error_x.block<6, 1>(0, 0);
-    auto error_quat = rotationVectorToQuaternion(error_x.block<3, 1>(6, 0));
-    x.block<4, 1>(6, 0) = quaternionToLeftProductMatrix(x.block<4, 1>(6, 0)) * error_quat;
-    x.block<9, 1>(10, 0) += error_x.block<9, 1>(9, 0);
+void ErrorStateKalmanFilter::updateWithGnss(std::shared_ptr<GnssMeasurement> gnssData) {
+  V_.block<3, 3>(0, 0) = gnssData->positionCovariance;
+  J_true_error_.block<4, 3>(6, 6) = computeQuatJacobiToErrorQuat();
+
+  H_ = H_x_ * J_true_error_;
+  Eigen::Matrix<double, 18, 6> H_t = H_.transpose();
+
+  K_ = P_ * H_t * (H_ * P_ * H_t + V_).inverse();
+  z_.block<3, 1>(0, 0) = llaToEnu(gnssData->position);
+  z_.block<3, 1>(3, 0) = gnssData->linearVelocity;
+
+  error_x_ = K_ * (z_ - computeHx());
+  P_ = (Mat18d::Identity() - K_ * H_) * P_;
+
+  injectErrorToNominal();
+  resetErrorState();
 }
 
-void ErrorStateKalmanFilter::resetErrorState()
-{
-    G.block<3, 3>(6, 6) = Eigen::Matrix3d::Identity() - 0.5 * vector3dToSkewSymmetric(error_x.block<3, 1>(6, 0));
-    P = G * P * G.transpose();
-    error_x.setZero();
+Eigen::Matrix<double, 4, 3> ErrorStateKalmanFilter::computeQuatJacobiToErrorQuat() {
+  Eigen::Matrix<double, 4, 3> quat_true_error = Eigen::Matrix<double, 4, 3>::Zero();
+  quat_true_error.block<3, 3>(1, 0) = Eigen::Matrix3d::Identity() * 0.5;
+  quat_true_error = MathUtils::quatToLeftProductMatrix(nominal_attitude_) * quat_true_error;
+  return quat_true_error;
 }
 
-Eigen::Matrix<double, 4, 3> ErrorStateKalmanFilter::computeQ_error_theta(const Eigen::Matrix<double, 4, 1>& quaternion)
-{
-    Eigen::Matrix<double, 4, 3> error_q_error_theta = Eigen::Matrix<double, 4, 3>::Zero();
-    error_q_error_theta.block<3, 3>(1, 0) = Eigen::Matrix3d::Identity() * 0.5;
-    auto Q_error_theta = quaternionToLeftProductMatrix(quaternion) * error_q_error_theta;
-    return Q_error_theta;
+Eigen::Matrix<double, 6, 1> ErrorStateKalmanFilter::computeHx() {
+  Eigen::Matrix<double, 6, 1> hx;
+  hx.block<3, 1>(0, 0) = nominal_pos_;
+  hx.block<3, 1>(3, 0) = nominal_vel_;
+  return hx;
 }
 
-Eigen::Matrix4d ErrorStateKalmanFilter::quaternionToLeftProductMatrix(const Eigen::Matrix<double, 4, 1>& quaternion)
-{
-    Eigen::Vector3d q_v = quaternion.block<3, 1>(1, 0);
-    double q_w = quaternion(0);
-    Eigen::Matrix4d LeftProductMatrix = q_w * Eigen::Matrix4d::Identity();
-    LeftProductMatrix.block<1, 3>(3, 0) += q_v.transpose();
-    LeftProductMatrix.block<3, 1>(0, 3) -= q_v;
-    LeftProductMatrix.block<3, 3>(1, 1) += vector3dToSkewSymmetric(q_v);
-    return LeftProductMatrix;
+Eigen::Vector3d ErrorStateKalmanFilter::llaToEnu(const Eigen::Vector3d& llaPosition) {
+  if (!local_cartesian_initialized_) {
+    local_cartesian_.Reset(llaPosition(0), llaPosition(1), llaPosition(2));
+    local_cartesian_initialized_ = true;
+  }
+  Eigen::Vector3d enuPosition;
+  local_cartesian_.Forward(llaPosition(0), llaPosition(1), llaPosition(2), enuPosition(0), enuPosition(1),
+                           enuPosition(2));
+  return enuPosition;
 }
 
-Eigen::Matrix4d ErrorStateKalmanFilter::quaternionToRightProductMatrix(const Eigen::Matrix<double, 4, 1>& quaternion)
-{
-    Eigen::Vector3d q_v = quaternion.block<3, 1>(1, 0);
-    double q_w = quaternion(0, 0);
-    Eigen::Matrix4d RightProductMatrix = q_w * Eigen::Matrix4d::Identity();
-    RightProductMatrix.block<1, 3>(3, 0) += q_v.transpose();
-    RightProductMatrix.block<3, 1>(0, 3) -= q_v;
-    RightProductMatrix.block<3, 3>(1, 1) -= vector3dToSkewSymmetric(q_v);
-    return RightProductMatrix;
+void ErrorStateKalmanFilter::injectErrorToNominal() {
+  nominal_pos_ += error_x_.block<3, 1>(0, 0);
+  nominal_vel_ += error_x_.block<3, 1>(3, 0);
+  nominal_attitude_ = nominal_attitude_ * MathUtils::rotationVectorToQuaternion(error_x_.block<3, 1>(6, 0));
+  nominal_attitude_.normalize();
+  nominal_accel_bias_ += error_x_.block<3, 1>(9, 0);
+  nominal_gyro_bias_ += error_x_.block<3, 1>(12, 0);
+  nominal_gravity_ += error_x_.block<3, 1>(15, 0);
 }
 
-Eigen::Matrix3d ErrorStateKalmanFilter::vector3dToSkewSymmetric(const Eigen::Vector3d& vec3d)
-{
-    Eigen::Matrix3d skewSymmetric;
-    skewSymmetric << 0.0, -vec3d.z(), vec3d.y(), 
-        vec3d.z(), 0.0, -vec3d.x(), 
-        -vec3d.y(), vec3d.x(), 0.0;
-    return skewSymmetric;
-}
-
-Eigen::Matrix3d ErrorStateKalmanFilter::quaternionToRotationMatrix(const Eigen::Matrix<double, 4, 1>& quaternion)
-{
-    Eigen::Quaterniond q;
-    q.w() = quaternion(0);
-    q.vec() = quaternion.block<3, 1>(1, 0);
-    return q.toRotationMatrix();
-}
-
-Eigen::Vector4d ErrorStateKalmanFilter::rotationVectorToQuaternion(const Eigen::Vector3d& rotationVector)
-{
-    double phi = rotationVector.norm();
-    Eigen::Vector3d u = rotationVector.normalized();
-    Eigen::Vector4d quaternion;
-    quaternion(0) = std::cos(phi / 2.0);
-    quaternion.block<3, 1>(1, 0) = u * std::sin(phi / 2.0);
-    return quaternion;
-}
-
-Eigen::Matrix3d ErrorStateKalmanFilter::rotationVectorToRotationMatrix(const Eigen::Vector3d& rotationVector)
-{
-    double phi = rotationVector.norm();
-    Eigen::Vector3d u = rotationVector.normalized();
-    Eigen::Matrix3d rotationMatrix = std::cos(phi) * Eigen::Matrix3d::Identity() + std::sin(phi) * vector3dToSkewSymmetric(u) + (1.0 - std::cos(phi)) * u * u.transpose();
-    return rotationMatrix;
-}
-
-Eigen::Vector4d ErrorStateKalmanFilter::rotationMatrixToQuaternion(const Eigen::Matrix3d& rotationMatrix)
-{
-    Eigen::Quaterniond q(rotationMatrix);
-    Eigen::Vector4d quaternion(q.w(), q.x(), q.y(), q.z());
-    return quaternion;
-}
-
-Eigen::Vector3d ErrorStateKalmanFilter::getPosition() const 
-{
-    return x.block<3, 1>(0, 0); 
-}
-
-Eigen::Vector3d ErrorStateKalmanFilter::llaToEnu(const Eigen::Vector3d& llaPosition)
-{
-    if(!mLocalCartesinInitialized)
-    {
-        mLocalCartesian.Reset(llaPosition(0), llaPosition(1), llaPosition(2));
-        mLocalCartesinInitialized = true;
-    }
-    Eigen::Vector3d enuPosition;
-    mLocalCartesian.Forward(llaPosition(0), llaPosition(1), llaPosition(2), enuPosition(0), enuPosition(1), enuPosition(2));
-    return enuPosition;
-}
-
-void ErrorStateKalmanFilter::printState() const
-{
-    SPDLOG_INFO("state position : {}, {}, {}", x(0), x(1), x(2));
-    SPDLOG_INFO("state velocity : {}, {}, {}", x(3), x(4), x(5));
-    SPDLOG_INFO("state quaternion : {}, {}, {}, {}", x(6), x(7), x(8), x(9));
-    SPDLOG_INFO("state gravity : {}, {}, {}", x(16), x(17), x(18));
+void ErrorStateKalmanFilter::resetErrorState() {
+  G_.block<3, 3>(6, 6) = Eigen::Matrix3d::Identity() - 0.5 * MathUtils::vec3ToSkewSymmetric(error_x_.block<3, 1>(6, 0));
+  P_ = G_ * P_ * G_.transpose();
+  error_x_.setZero();
 }

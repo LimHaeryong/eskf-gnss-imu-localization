@@ -29,31 +29,32 @@ find_package(GeographicLib REQUIRED PATHS /root/geographic/install/lib/cmake/Geo
 
 add_subdirectory(modules)
 
-add_executable(test_exec 
+add_executable(${PROJECT_NAME}_node 
   src/main.cpp
   src/gnss_subscriber.cpp
   src/imu_subscriber.cpp
+  src/math_utils.cpp
   src/eskf.cpp
 )
-target_include_directories(test_exec PRIVATE
+target_include_directories(${PROJECT_NAME}_node PRIVATE
   include
   ${EIGEN3_INCLUDE_DIR}
   ${GeographicLib_INCLUDE_DIRS}
 )
-ament_target_dependencies(test_exec 
+ament_target_dependencies(${PROJECT_NAME}_node 
   rclcpp
   sensor_msgs
   geometry_msgs
   message_filters
 )
-target_link_libraries(test_exec
+target_link_libraries(${PROJECT_NAME}_node
   Eigen3::Eigen
   ${GeographicLib_LIBRARIES}
   opengl_viewer
 )
 
 install(TARGETS
-  test_exec
+  ${PROJECT_NAME}_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

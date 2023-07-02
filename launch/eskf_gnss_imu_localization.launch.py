@@ -21,8 +21,8 @@ def generate_launch_description():
     
     test_exec_node = Node(
         package='eskf_gnss_imu_localization',
-        executable='test_exec',
-        name='test_exec_name',
+        executable='eskf_gnss_imu_localization_node',
+        name='eskf_gnss_imu_localization_node',
         prefix=['stdbuf -o L'],
         output='screen'
     )
