@@ -29,6 +29,7 @@ private:
     std::unique_ptr<VertexLayout> mVertexLayout;
     std::unique_ptr<Buffer> mVertexBuffer;
 
+
     bool mCameraControl = false;
     glm::vec2 mPrevMousePos = glm::vec2(0.0f);
     float mCameraPitch = 0.0f;
@@ -42,7 +43,7 @@ private:
 
     glm::vec4 mClearColor = glm::vec4(0.4f, 0.4f, 0.8f, 0.0f);
 
-    std::vector<float> mPoints;
+    std::vector<Point> mPoints;
 };
 
 #endif // _CONTEXT_H_

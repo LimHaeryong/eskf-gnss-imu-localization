@@ -54,7 +54,8 @@ int main(int argc, char** argv) {
       auto positionDiff = gnssPosition - filteredPosition;
       eskf->printState();
       SPDLOG_INFO("position diff : {:.3f}, {:.3f}, {:.3f}", positionDiff(0), positionDiff(1), positionDiff(2));
-      glPointQueue->push(std::make_shared<Point>(filteredPosition(0), filteredPosition(1), filteredPosition(2)));
+      glPointQueue->push(std::make_shared<Point>(gnssPosition(0), gnssPosition(1), gnssPosition(2), PointType::GNSS));
+      glPointQueue->push(std::make_shared<Point>(filteredPosition(0), filteredPosition(1), filteredPosition(2), PointType::FILTERED));
     }
   }
 
