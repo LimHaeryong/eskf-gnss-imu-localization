@@ -30,9 +30,10 @@ int main(int argc, char** argv) {
   std::thread executorThread([&executor]() { executor->spin(); });
 
   auto openglViewer = std::make_shared<OpenglViewer>();
-  // std::thread openglViewerThread([&openglViewer](){
-  //     openglViewer->run();
-  // });
+  auto glPointQueue = openglViewer->getQueue();
+  std::thread openglViewerThread([&openglViewer](){
+      openglViewer->run();
+  });
 
   std::shared_ptr<ImuMeasurement> imuMeasurement = nullptr;
   std::shared_ptr<GnssMeasurement> gnssMeasurement = nullptr;
@@ -48,11 +49,12 @@ int main(int argc, char** argv) {
     if (!gnssMeasurementQueue->empty()) {
       gnssMeasurement = gnssMeasurementQueue->pop();
       auto gnssPosition = eskf->llaToEnu(gnssMeasurement->position);
-      auto gnssVelocity = gnssMeasurement->linearVelocity;
       eskf->updateWithGnss(std::move(gnssMeasurement));
-      auto positionDiff = gnssPosition - eskf->getPosition();
+      auto filteredPosition = eskf->getPosition();
+      auto positionDiff = gnssPosition - filteredPosition;
       eskf->printState();
-      SPDLOG_INFO("position diff : {}, {}, {}", positionDiff(0), positionDiff(1), positionDiff(2));
+      SPDLOG_INFO("position diff : {:.3f}, {:.3f}, {:.3f}", positionDiff(0), positionDiff(1), positionDiff(2));
+      glPointQueue->push(std::make_shared<Point>(filteredPosition(0), filteredPosition(1), filteredPosition(2)));
     }
   }
 

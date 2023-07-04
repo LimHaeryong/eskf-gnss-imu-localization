@@ -1,5 +1,9 @@
 #include "opengl_viewer/opengl_viewer.h"
 
+OpenglViewer::OpenglViewer()
+    : mPointQueue(std::make_shared<ThreadsafeQueue<std::shared_ptr<Point>>>(100))
+    {}
+
 int OpenglViewer::run()
 {
     SPDLOG_INFO("Start program");
@@ -65,6 +69,12 @@ int OpenglViewer::run()
         glfwPollEvents();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+        while(!mPointQueue->empty())
+        {
+            auto Point = mPointQueue->pop();
+            context->addPoint(*Point);
+        }
 
         context->processInput(window);
         context->render();

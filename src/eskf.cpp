@@ -33,11 +33,11 @@ ErrorStateKalmanFilter::ErrorStateKalmanFilter()
 }
 
 void ErrorStateKalmanFilter::printState() const {
-  SPDLOG_INFO("state position : {}, {}, {}", nominal_pos_(0), nominal_pos_(1), nominal_pos_(2));
-  SPDLOG_INFO("state velocity : {}, {}, {}", nominal_vel_(0), nominal_vel_(1), nominal_vel_(2));
-  SPDLOG_INFO("state quaternion : {}, {}, {}, {}", nominal_attitude_.w(), nominal_attitude_.x(), nominal_attitude_.y(),
-              nominal_attitude_.z());
-  SPDLOG_INFO("state gravity : {}, {}, {}", nominal_gravity_(0), nominal_gravity_(1), nominal_gravity_(2));
+  SPDLOG_INFO("state position : {:.3f}, {:.3f}, {:.3f}", nominal_pos_(0), nominal_pos_(1), nominal_pos_(2));
+  SPDLOG_INFO("state velocity : {:.3f}, {:.3f}, {:.3f}", nominal_vel_(0), nominal_vel_(1), nominal_vel_(2));
+  SPDLOG_INFO("state quaternion : {:.3f}, {:.3f}, {:.3f}, {:.3f}", nominal_attitude_.w(), nominal_attitude_.x(),
+              nominal_attitude_.y(), nominal_attitude_.z());
+  SPDLOG_INFO("state gravity : {:.3f}, {:.3f}, {:.3f}", nominal_gravity_(0), nominal_gravity_(1), nominal_gravity_(2));
 }
 
 void ErrorStateKalmanFilter::predictWithImu(std::shared_ptr<ImuMeasurement> imuData) {
