@@ -16,17 +16,17 @@ std::unique_ptr<Context> Context::create()
 bool Context::init()
 {
     float vertices[] = {
-        0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f
+        0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f
     };
 
     mVertexLayout = VertexLayout::create();
-    mVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STREAM_DRAW, vertices, sizeof(float) * 12);
+    mVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STATIC_DRAW, vertices, sizeof(float) * 12);
     mVertexLayout->setAttribute(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, 0);
     mVertexLayout->setAttribute(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, sizeof(float) * 3);
 
-    std::shared_ptr<Shader> vertexShader = Shader::createFromFile("/root/workspace/src/eskf_gnss_imu_localization/modules/opengl_viewer/shader/simple.vs", GL_VERTEX_SHADER);
-    std::shared_ptr<Shader> fragmentShader = Shader::createFromFile("/root/workspace/src/eskf_gnss_imu_localization/modules/opengl_viewer/shader/simple.fs", GL_FRAGMENT_SHADER);
+    std::shared_ptr<Shader> vertexShader = Shader::createFromFile(VERTEX_SHADER_PATH, GL_VERTEX_SHADER);
+    std::shared_ptr<Shader> fragmentShader = Shader::createFromFile(FRAGMENT_SHADER_PATH, GL_FRAGMENT_SHADER);
     SPDLOG_INFO("vertex shader id: {}", vertexShader->get());
     SPDLOG_INFO("fragment shader id: {}", fragmentShader->get());
     if(!vertexShader || !fragmentShader)
@@ -40,7 +40,7 @@ bool Context::init()
     }
     SPDLOG_INFO("program id: {}", mProgram->get());
 
-    glClearColor(0.0f, 0.0f, 0.2f, 0.0f);
+    glClearColor(0.2f, 0.2f, 0.2f, 0.0f);
 
     mProgram->use();
 
@@ -182,7 +182,7 @@ void Context::render()
         auto model = glm::translate(glm::mat4(1.0f), pos);
         auto transform = projection * view * model;
         mProgram->setUniform("transform", transform);
-        if(point.pointType == PointType::GNSS)
+        if(point.pointType == PointType::FILTERED)
         {
             glDrawArrays(GL_POINTS, 0, 1);
         }

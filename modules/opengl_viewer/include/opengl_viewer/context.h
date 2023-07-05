@@ -41,7 +41,7 @@ private:
     int32_t mWidth = WINDOW_WIDTH;
     int32_t mHeight = WINDOW_HEIGHT;
 
-    glm::vec4 mClearColor = glm::vec4(0.4f, 0.4f, 0.8f, 0.0f);
+    glm::vec4 mClearColor = glm::vec4(0.2f, 0.2f, 0.2f, 0.0f);
 
     std::vector<Point> mPoints;
 };

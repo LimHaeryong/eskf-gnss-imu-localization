@@ -15,8 +15,7 @@
 int main(int argc, char** argv) {
   SPDLOG_INFO("program start");
   rclcpp::init(argc, argv);
-
-  //auto localizationMainNode = rclcpp::Node::make_shared("localization_main_node");
+  
   auto gnssSubscriber = std::make_shared<GnssSubscriber>();
   auto gnssMeasurementQueue = gnssSubscriber->getQueue();
   auto imuSubscriber = std::make_shared<ImuSubscriber>();
@@ -44,6 +43,8 @@ int main(int argc, char** argv) {
     if (!imuMeasurementQueue->empty()) {
       imuMeasurement = imuMeasurementQueue->pop();
       eskf->predictWithImu(std::move(imuMeasurement));
+      auto filteredPosition = eskf->getPosition();
+      glPointQueue->push(std::make_shared<Point>(filteredPosition(0), filteredPosition(1), filteredPosition(2), PointType::FILTERED));
     }
 
     if (!gnssMeasurementQueue->empty()) {
@@ -61,7 +62,7 @@ int main(int argc, char** argv) {
 
   executor->cancel();
   executorThread.join();
-  // openglViewerThread.join();
+  openglViewerThread.join();
   rclcpp::shutdown();
 
   return 0;
