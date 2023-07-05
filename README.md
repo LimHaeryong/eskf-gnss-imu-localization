@@ -2,7 +2,7 @@
 
 This repository contains GNSS-IMU Localization based on Error-State Kalman Filter.
 
-The implementation of ESKF is based on ![Quaternion kinematics for the error-state Kalman filter](https://arxiv.org/pdf/1711.02508.pdf).
+The implementation of ESKF is based on [Quaternion kinematics for the error-state Kalman filter](https://arxiv.org/pdf/1711.02508.pdf).
 
 OpenGL is used to visualize GNSS/Filtered Position in realtime and 3D space.
 
