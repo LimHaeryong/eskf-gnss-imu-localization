@@ -68,8 +68,8 @@ void ErrorStateKalmanFilter::predictWithImu(std::shared_ptr<ImuMeasurement> imuD
 
   Q_i_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() * velocity_noise_variance_ * dt2;
   Q_i_.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity() * orientation_noise_variance_ * dt2;
-  Q_i_.block<3, 3>(6, 6) = imuData->accelerationCovariance;
-  Q_i_.block<3, 3>(9, 9) = imuData->angularVelocityCovariance;
+  Q_i_.block<3, 3>(6, 6) = imuData->accelerationCovariance * dt;
+  Q_i_.block<3, 3>(9, 9) = imuData->angularVelocityCovariance * dt;
 
   P_ = F_x_ * P_ * F_x_.transpose() + F_i_ * Q_i_ * F_i_.transpose();
 }

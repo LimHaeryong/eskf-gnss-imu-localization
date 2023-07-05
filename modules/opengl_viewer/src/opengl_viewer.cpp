@@ -1,7 +1,10 @@
+#include <chrono>
+#include <thread>
+
 #include "opengl_viewer/opengl_viewer.h"
 
 OpenglViewer::OpenglViewer()
-    : mPointQueue(std::make_shared<ThreadsafeQueue<std::shared_ptr<Point>>>(100))
+    : mPointQueue(std::make_shared<ThreadsafeQueue<std::shared_ptr<Point>>>(500))
     {}
 
 int OpenglViewer::run()
@@ -63,6 +66,10 @@ int OpenglViewer::run()
     glfwSetCharCallback(window, onCharacterEvent);
     glfwSetScrollCallback(window, onScroll);
 
+    auto loopDuration = std::chrono::duration<double>(0.03);
+    auto prevTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsedTime, sleepTime;
+
     SPDLOG_INFO("Start main loop");
     while (!glfwWindowShouldClose(window))
     {
@@ -82,6 +89,14 @@ int OpenglViewer::run()
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         glfwSwapBuffers(window);
+
+        elapsedTime = std::chrono::high_resolution_clock::now() - prevTime;
+        sleepTime = loopDuration - elapsedTime;
+        if (sleepTime > std::chrono::duration<double>::zero())
+        {
+            std::this_thread::sleep_for(sleepTime);
+        }
+        prevTime = std::chrono::high_resolution_clock::now();
     }
     context.reset();
     ImGui_ImplOpenGL3_Shutdown();

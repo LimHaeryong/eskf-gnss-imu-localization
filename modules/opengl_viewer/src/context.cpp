@@ -15,15 +15,7 @@ std::unique_ptr<Context> Context::create()
 
 bool Context::init()
 {
-    float vertices[] = {
-        0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,
-        0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f
-    };
-
     mVertexLayout = VertexLayout::create();
-    mVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STATIC_DRAW, vertices, sizeof(float) * 12);
-    mVertexLayout->setAttribute(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, 0);
-    mVertexLayout->setAttribute(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, sizeof(float) * 3);
 
     std::shared_ptr<Shader> vertexShader = Shader::createFromFile(VERTEX_SHADER_PATH, GL_VERTEX_SHADER);
     std::shared_ptr<Shader> fragmentShader = Shader::createFromFile(FRAGMENT_SHADER_PATH, GL_FRAGMENT_SHADER);
@@ -145,6 +137,10 @@ void Context::mouseButton(int button, int action, double x, double y)
 
 void Context::render()
 {
+    mVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STREAM_DRAW, mPoints.data(), sizeof(float) * mPoints.size());
+    mVertexLayout->setAttribute(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, 0);
+    mVertexLayout->setAttribute(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, sizeof(float) * 3);
+
     if(ImGui::Begin("UI window"))
     {
         if(ImGui::ColorEdit4("clear color", glm::value_ptr(mClearColor)))
@@ -176,24 +172,29 @@ void Context::render()
     auto view = glm::lookAt(mCameraPos, mCameraPos + mCameraFront, mCameraUp);
     auto projection = glm::perspective(glm::radians(45.0f), static_cast<float>(mWidth) / static_cast<float>(mHeight), 0.01f, 0.0f);
 
-    for(const auto& point : mPoints)
-    {
-        auto pos = glm::vec3(static_cast<float>(point.x / 100.0), static_cast<float>(point.y / 100.0), static_cast<float>(point.z / 100.0));
-        auto model = glm::translate(glm::mat4(1.0f), pos);
-        auto transform = projection * view * model;
-        mProgram->setUniform("transform", transform);
-        if(point.pointType == PointType::FILTERED)
-        {
-            glDrawArrays(GL_POINTS, 0, 1);
-        }
-        else
-        {
-            glDrawArrays(GL_POINTS, 1, 1);
-        }
-    }
+    auto pos = glm::vec3(0.0f, 0.0f, 0.0f);
+    auto model = glm::translate(glm::mat4(1.0f), pos);
+    auto transform = projection * view * model;
+    mProgram->setUniform("transform", transform);
+    glDrawArrays(GL_POINTS, 0, mPoints.size() / 6);
+
 }
 
 void Context::addPoint(const Point& point)
 {
-    mPoints.push_back(point);
+    mPoints.push_back(static_cast<float>(point.x / 100.0));
+    mPoints.push_back(static_cast<float>(point.y / 100.0));
+    mPoints.push_back(static_cast<float>(point.z / 100.0));
+    if(point.pointType == PointType::GNSS)
+    {
+        mPoints.push_back(1.0f);
+        mPoints.push_back(0.0f);
+        mPoints.push_back(0.0f);
+    }
+    else
+    {
+        mPoints.push_back(0.0f);
+        mPoints.push_back(1.0f);
+        mPoints.push_back(0.0f);
+    }
 }

@@ -43,7 +43,7 @@ private:
 
     glm::vec4 mClearColor = glm::vec4(0.2f, 0.2f, 0.2f, 0.0f);
 
-    std::vector<Point> mPoints;
+    std::vector<float> mPoints;
 };
 
 #endif // _CONTEXT_H_
