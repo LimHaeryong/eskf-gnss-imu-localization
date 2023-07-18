@@ -18,23 +18,25 @@ bool Context::init()
     mVertexLayout = VertexLayout::create();
 
     std::shared_ptr<Shader> vertexShader = Shader::createFromFile(VERTEX_SHADER_PATH, GL_VERTEX_SHADER);
-    std::shared_ptr<Shader> fragmentShader = Shader::createFromFile(FRAGMENT_SHADER_PATH, GL_FRAGMENT_SHADER);
+    std::shared_ptr<Shader> gnssFragmentShader = Shader::createFromFile(GNSS_FRAGMENT_SHADER_PATH, GL_FRAGMENT_SHADER);
+    std::shared_ptr<Shader> filteredFragmentShader = Shader::createFromFile(FILTERED_FRAGMENT_SHADER_PATH, GL_FRAGMENT_SHADER);
+
     SPDLOG_INFO("vertex shader id: {}", vertexShader->get());
-    SPDLOG_INFO("fragment shader id: {}", fragmentShader->get());
-    if(!vertexShader || !fragmentShader)
+    SPDLOG_INFO("gnss fragment shader id: {}", gnssFragmentShader->get());
+    SPDLOG_INFO("filtered fragment shader id: {}", filteredFragmentShader->get());
+    if(!vertexShader || !gnssFragmentShader || !filteredFragmentShader)
     {
         return false;
     }
-    mProgram = Program::create({fragmentShader, vertexShader});
-    if(!mProgram)
+    mGnssProgram = Program::create({gnssFragmentShader, vertexShader});
+    mFilteredProgram = Program::create({filteredFragmentShader, vertexShader});
+    if(!mGnssProgram || !mFilteredProgram)
     {
         return false;
     }
-    SPDLOG_INFO("program id: {}", mProgram->get());
+    SPDLOG_INFO("program id: {}, {}", mGnssProgram->get(), mFilteredProgram->get());
 
     glClearColor(0.2f, 0.2f, 0.2f, 0.0f);
-
-    mProgram->use();
 
     return true;
 }
@@ -137,10 +139,6 @@ void Context::mouseButton(int button, int action, double x, double y)
 
 void Context::render()
 {
-    mVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STREAM_DRAW, mPoints.data(), sizeof(float) * mPoints.size());
-    mVertexLayout->setAttribute(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, 0);
-    mVertexLayout->setAttribute(1, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, sizeof(float) * 3);
-
     if(ImGui::Begin("UI window"))
     {
         if(ImGui::ColorEdit4("clear color", glm::value_ptr(mClearColor)))
@@ -164,8 +162,6 @@ void Context::render()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 
-    mProgram->use();
-
     mCameraFront = glm::rotate(glm::mat4(1.0f), glm::radians(mCameraYaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
                    glm::rotate(glm::mat4(1.0f), glm::radians(mCameraPitch), glm::vec3(1.0f, 0.0f, 0.0f)) *
                    glm::vec4(0.0f, 0.0f, -1.0f, 0.0f);
@@ -175,26 +171,33 @@ void Context::render()
     auto pos = glm::vec3(0.0f, 0.0f, 0.0f);
     auto model = glm::translate(glm::mat4(1.0f), pos);
     auto transform = projection * view * model;
-    mProgram->setUniform("transform", transform);
-    glDrawArrays(GL_POINTS, 0, mPoints.size() / 6);
 
+    auto gnssVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STREAM_DRAW, mGnssPoints.data(), sizeof(float) * mGnssPoints.size());
+    mVertexLayout->setAttribute(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
+    mGnssProgram->use();
+    mGnssProgram->setUniform("transform", transform);
+    glDrawArrays(GL_POINTS, 0, mGnssPoints.size() / 3);
+
+    auto filteredVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STREAM_DRAW, mFilteredPoints.data(), sizeof(float) * mFilteredPoints.size());
+    mVertexLayout->setAttribute(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
+    mFilteredProgram->use();
+    mFilteredProgram->setUniform("transform", transform);
+    glDrawArrays(GL_POINTS, 0, mFilteredPoints.size() / 3);
 }
 
 void Context::addPoint(const Point& point)
 {
-    mPoints.push_back(static_cast<float>(point.x / 100.0));
-    mPoints.push_back(static_cast<float>(point.y / 100.0));
-    mPoints.push_back(static_cast<float>(point.z / 100.0));
+
     if(point.pointType == PointType::GNSS)
     {
-        mPoints.push_back(1.0f);
-        mPoints.push_back(0.0f);
-        mPoints.push_back(0.0f);
+        mGnssPoints.push_back(static_cast<float>(point.x / 100.0));
+        mGnssPoints.push_back(static_cast<float>(point.y / 100.0));
+        mGnssPoints.push_back(static_cast<float>(point.z / 100.0));
     }
     else
     {
-        mPoints.push_back(0.0f);
-        mPoints.push_back(1.0f);
-        mPoints.push_back(0.0f);
+        mFilteredPoints.push_back(static_cast<float>(point.x / 100.0));
+        mFilteredPoints.push_back(static_cast<float>(point.y / 100.0));
+        mFilteredPoints.push_back(static_cast<float>(point.z / 100.0));
     }
 }

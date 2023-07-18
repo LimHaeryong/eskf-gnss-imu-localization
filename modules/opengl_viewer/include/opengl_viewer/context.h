@@ -24,11 +24,11 @@ public:
 private:
     Context() {}
     bool init();
-    std::unique_ptr<Program> mProgram;
-
+    
     std::unique_ptr<VertexLayout> mVertexLayout;
-    std::unique_ptr<Buffer> mVertexBuffer;
 
+    std::unique_ptr<Program> mGnssProgram;
+    std::unique_ptr<Program> mFilteredProgram;
 
     bool mCameraControl = false;
     glm::vec2 mPrevMousePos = glm::vec2(0.0f);
@@ -43,7 +43,8 @@ private:
 
     glm::vec4 mClearColor = glm::vec4(0.2f, 0.2f, 0.2f, 0.0f);
 
-    std::vector<float> mPoints;
+    std::vector<float> mGnssPoints;
+    std::vector<float> mFilteredPoints;
 };
 
 #endif // _CONTEXT_H_
