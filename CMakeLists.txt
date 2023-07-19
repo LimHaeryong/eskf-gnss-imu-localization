@@ -25,7 +25,7 @@ find_package(nmea_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 
 find_package(Eigen3 REQUIRED)
-find_package(GeographicLib REQUIRED PATHS /root/geographic/install/lib/cmake/GeographicLib)
+find_package(GeographicLib REQUIRED)
 
 add_subdirectory(modules)
 
