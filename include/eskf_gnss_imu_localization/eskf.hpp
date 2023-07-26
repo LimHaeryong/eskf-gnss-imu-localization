@@ -7,6 +7,8 @@
 #include <Eigen/Dense>
 #include <GeographicLib/LocalCartesian.hpp>
 
+#include <yaml-cpp/yaml.h>
+
 #include "eskf_gnss_imu_localization/type.hpp"
 
 class ErrorStateKalmanFilter {
@@ -19,7 +21,7 @@ class ErrorStateKalmanFilter {
   using Vec18d = Eigen::Matrix<double, 18, 1>;
   using Vec6d = Eigen::Matrix<double, 6, 1>;
 
-  ErrorStateKalmanFilter();
+  ErrorStateKalmanFilter(const YAML::Node& imuCalibration);
   ~ErrorStateKalmanFilter() {}
 
   void predictWithImu(std::shared_ptr<ImuMeasurement> imuData);
@@ -52,9 +54,6 @@ class ErrorStateKalmanFilter {
   Mat18d F_x_;
   Eigen::Matrix<double, 18, 12> F_i_;
   Mat12d Q_i_;
-
-  double velocity_noise_variance_;
-  double orientation_noise_variance_;
 
   Vec6d z_;
   Eigen::Matrix<double, 6, 19> H_x_;

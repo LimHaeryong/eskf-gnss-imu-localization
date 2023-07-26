@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(eskf_gnss_imu_localization)
 
+set(IMU_CALIBRATION_CONFIG_PATH ${CMAKE_CURRENT_SOURCE_DIR}/params/imu.yaml)
+
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
@@ -25,7 +27,8 @@ find_package(nmea_msgs REQUIRED)
 find_package(message_filters REQUIRED)
 
 find_package(Eigen3 REQUIRED)
-find_package(GeographicLib REQUIRED PATHS /root/geographic/install/lib/cmake/GeographicLib)
+find_package(GeographicLib REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 add_subdirectory(modules)
 
@@ -40,6 +43,7 @@ target_include_directories(${PROJECT_NAME}_node PRIVATE
   include
   ${EIGEN3_INCLUDE_DIR}
   ${GeographicLib_INCLUDE_DIRS}
+  ${YAML_CPP_INCLUDE_DIRS}
 )
 ament_target_dependencies(${PROJECT_NAME}_node 
   rclcpp
@@ -51,6 +55,11 @@ target_link_libraries(${PROJECT_NAME}_node
   Eigen3::Eigen
   ${GeographicLib_LIBRARIES}
   opengl_viewer
+  ${YAML_CPP_LIBRARIES}
+)
+
+target_compile_definitions(${PROJECT_NAME}_node PUBLIC
+  IMU_CALIBRATION_CONFIG_PATH="${IMU_CALIBRATION_CONFIG_PATH}"
 )
 
 install(TARGETS

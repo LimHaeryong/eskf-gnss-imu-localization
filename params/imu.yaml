@@ -1,0 +1,13 @@
+# MTi-28A53G25
+
+#Accelerometer
+accelerometer_noise: 0.002 # m/s^2/Hz^0.5
+accelerometer_bias_stability : 0.02 # m/s^2 
+
+#Gyroscope
+gyroscope_noise: 0.05 # deg/s/Hz^0.5
+gyroscope_bias_stability: 1.0 # deg/s 
+
+rostopic: '/imu/data' 
+update_rate: 100.0
+

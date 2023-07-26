@@ -6,6 +6,8 @@
 #include <spdlog/spdlog.h>
 #include <rclcpp/rclcpp.hpp>
 
+#include <yaml-cpp/yaml.h>
+
 #include "eskf_gnss_imu_localization/eskf.hpp"
 #include "eskf_gnss_imu_localization/gnss_subscriber.hpp"
 #include "eskf_gnss_imu_localization/imu_subscriber.hpp"
@@ -21,7 +23,8 @@ int main(int argc, char** argv) {
   auto imuSubscriber = std::make_shared<ImuSubscriber>();
   auto imuMeasurementQueue = imuSubscriber->getQueue();
 
-  auto eskf = std::make_shared<ErrorStateKalmanFilter>();
+  auto imuCalibration = YAML::LoadFile(IMU_CALIBRATION_CONFIG_PATH);
+  auto eskf = std::make_shared<ErrorStateKalmanFilter>(imuCalibration);
 
   auto executor = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
   executor->add_node(gnssSubscriber);

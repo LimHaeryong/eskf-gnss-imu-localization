@@ -10,6 +10,7 @@ Eigen::Matrix4d quatToLeftProductMatrix(const Eigen::Quaterniond& quat);
 Eigen::Matrix4d quatToRightProductMatrix(const Eigen::Quaterniond& quat);
 Eigen::Matrix3d rotationVectorToRotationMatrix(const Eigen::Vector3d& vec3);
 Eigen::Quaterniond rotationVectorToQuaternion(const Eigen::Vector3d& vec3);
+double degreeToRadian(double degree);
 
 }  // namespace MathUtils
 

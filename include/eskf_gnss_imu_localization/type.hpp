@@ -15,19 +15,15 @@ struct ImuMeasurement {
   using TimePoint = std::chrono::time_point<std::chrono::system_clock>;
   TimePoint timestamp;
   Eigen::Vector3d angularVelocity;
-  Eigen::Matrix3d angularVelocityCovariance;
   Eigen::Vector3d acceleration;
-  Eigen::Matrix3d accelerationCovariance;
 
   ImuMeasurement(sensor_msgs::msg::Imu::SharedPtr imuData)
       : timestamp(std::chrono::seconds(imuData->header.stamp.sec) +
                   std::chrono::nanoseconds(imuData->header.stamp.nanosec)),
         angularVelocity(
             Eigen::Vector3d(imuData->angular_velocity.x, imuData->angular_velocity.y, imuData->angular_velocity.z)),
-        angularVelocityCovariance(Eigen::Matrix3d(imuData->angular_velocity_covariance.data())),
         acceleration(Eigen::Vector3d(imuData->linear_acceleration.x, imuData->linear_acceleration.y,
-                                     imuData->linear_acceleration.z)),
-        accelerationCovariance(Eigen::Matrix3d(imuData->linear_acceleration_covariance.data())) {}
+                                     imuData->linear_acceleration.z)) {}
 };
 
 struct GnssMeasurement {

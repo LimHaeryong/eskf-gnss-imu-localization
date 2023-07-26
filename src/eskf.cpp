@@ -5,7 +5,7 @@
 #include "eskf_gnss_imu_localization/eskf.hpp"
 #include "eskf_gnss_imu_localization/math_utils.hpp"
 
-ErrorStateKalmanFilter::ErrorStateKalmanFilter()
+ErrorStateKalmanFilter::ErrorStateKalmanFilter(const YAML::Node& imuCalibration)
     : nominal_pos_(Eigen::Vector3d::Zero()),
       nominal_vel_(Eigen::Vector3d::Zero()),
       nominal_attitude_(Eigen::Quaterniond::Identity()),
@@ -17,8 +17,6 @@ ErrorStateKalmanFilter::ErrorStateKalmanFilter()
       F_x_(Mat18d::Identity()),
       F_i_(Eigen::Matrix<double, 18, 12>::Zero()),
       Q_i_(Mat12d::Identity()),
-      velocity_noise_variance_(1.0),
-      orientation_noise_variance_(1.0),
       H_x_(Eigen::Matrix<double, 6, 19>::Zero()),
       J_true_error_(Eigen::Matrix<double, 19, 18>::Zero()),
       V_(Mat6d::Identity()),
@@ -29,7 +27,18 @@ ErrorStateKalmanFilter::ErrorStateKalmanFilter()
   J_true_error_.block<9, 9>(10, 9) = Mat9d::Identity();
   J_true_error_.block<4, 3>(6, 6) = computeQuatJacobiToErrorQuat();
 
-  Q_i_.block<6, 6>(0, 0) = Mat6d::Identity() * 1e-2;
+  auto accel_noise = imuCalibration["accelerometer_noise"].as<double>();
+  auto accel_bias_stability = imuCalibration["accelerometer_bias_stability"].as<double>();
+  auto gyro_noise = MathUtils::degreeToRadian(imuCalibration["gyroscope_noise"].as<double>());
+  auto gyro_bias_stability = MathUtils::degreeToRadian(imuCalibration["gyroscope_bias_stability"].as<double>());
+  auto update_rate = imuCalibration["update_rate"].as<double>();
+
+  std::pow(update_rate, 0.5);
+  Q_i_.block<3, 3>(0, 0) = std::pow(accel_noise, 2) * update_rate * Eigen::Matrix3d::Identity();
+  Q_i_.block<3, 3>(3, 3) = std::pow(gyro_noise, 2) * update_rate * Eigen::Matrix3d::Identity();
+  Q_i_.block<3, 3>(6, 6) = std::pow(accel_bias_stability * update_rate, 2) * Eigen::Matrix3d::Identity();
+  Q_i_.block<3, 3>(9, 9) = std::pow(gyro_bias_stability * update_rate, 2) * Eigen::Matrix3d::Identity();
+  
 }
 
 void ErrorStateKalmanFilter::printState() const {
@@ -66,12 +75,7 @@ void ErrorStateKalmanFilter::predictWithImu(std::shared_ptr<ImuMeasurement> imuD
   F_x_.block<3, 3>(6, 6) = dR.transpose();
   F_x_.block<3, 3>(6, 12) = -1.0 * Eigen::Matrix3d::Identity() * dt;
 
-  Q_i_.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() * velocity_noise_variance_ * dt2;
-  Q_i_.block<3, 3>(3, 3) = Eigen::Matrix3d::Identity() * orientation_noise_variance_ * dt2;
-  Q_i_.block<3, 3>(6, 6) = imuData->accelerationCovariance * dt;
-  Q_i_.block<3, 3>(9, 9) = imuData->angularVelocityCovariance * dt;
-
-  P_ = F_x_ * P_ * F_x_.transpose() + F_i_ * Q_i_ * F_i_.transpose();
+  P_ = F_x_ * P_ * F_x_.transpose() + F_i_ * Q_i_ * F_i_.transpose() * dt2;
 }
 
 void ErrorStateKalmanFilter::updateWithGnss(std::shared_ptr<GnssMeasurement> gnssData) {

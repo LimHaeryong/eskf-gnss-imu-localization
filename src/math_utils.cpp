@@ -43,4 +43,8 @@ Eigen::Quaterniond rotationVectorToQuaternion(const Eigen::Vector3d& vec3) {
   return quaternion;
 }
 
+double degreeToRadian(double degree){
+  return degree * M_PI / 180.0;
+}
+
 }  // namespace MathUtils
