@@ -1,0 +1,12 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/root/workspace/install/nmea_navsat_driver/lib/python3.8/site-packages",
+        "/root/workspace/install/nmea_msgs/lib/python3.8/site-packages",
+        "/opt/ros/foxy/lib/python3.8/site-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/root/workspace/install/nmea_navsat_driver/lib/python3.8/site-packages",
+        "/root/workspace/install/nmea_msgs/lib/python3.8/site-packages",
+        "/opt/ros/foxy/lib/python3.8/site-packages"
+    ]
+}
