@@ -172,13 +172,13 @@ void Context::render()
     auto model = glm::translate(glm::mat4(1.0f), pos);
     auto transform = projection * view * model;
 
-    auto filteredVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STREAM_DRAW, mFilteredPoints.data(), sizeof(float) * mFilteredPoints.size());
+    auto filteredVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW, mFilteredPoints.data(), sizeof(float) * mFilteredPoints.size());
     mVertexLayout->setAttribute(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
     mFilteredProgram->use();
     mFilteredProgram->setUniform("transform", transform);
     glDrawArrays(GL_POINTS, 0, mFilteredPoints.size() / 3);
 
-    auto gnssVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_STREAM_DRAW, mGnssPoints.data(), sizeof(float) * mGnssPoints.size());
+    auto gnssVertexBuffer = Buffer::createWithData(GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW, mGnssPoints.data(), sizeof(float) * mGnssPoints.size());
     mVertexLayout->setAttribute(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 3, 0);
     mGnssProgram->use();
     mGnssProgram->setUniform("transform", transform);
