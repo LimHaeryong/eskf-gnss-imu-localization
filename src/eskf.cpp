@@ -33,7 +33,6 @@ ErrorStateKalmanFilter::ErrorStateKalmanFilter(const YAML::Node& imuCalibration)
   auto gyro_bias_stability = MathUtils::degreeToRadian(imuCalibration["gyroscope_bias_stability"].as<double>());
   auto update_rate = imuCalibration["update_rate"].as<double>();
 
-  std::pow(update_rate, 0.5);
   Q_i_.block<3, 3>(0, 0) = std::pow(accel_noise, 2) * update_rate * Eigen::Matrix3d::Identity();
   Q_i_.block<3, 3>(3, 3) = std::pow(gyro_noise, 2) * update_rate * Eigen::Matrix3d::Identity();
   Q_i_.block<3, 3>(6, 6) = std::pow(accel_bias_stability * update_rate, 2) * Eigen::Matrix3d::Identity();
